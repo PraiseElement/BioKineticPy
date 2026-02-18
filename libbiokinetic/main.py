@@ -1,5 +1,5 @@
-from libbiokinetic.models import Dataset, KineticPoint
-from libbiokinetic.solver import KineticSolver
+from .models import Dataset, KineticPoint
+from .solver import KineticSolver
 
 # 1. Simulate data (Competitive Inhibition: Vmax=100, Km=10, Ki=5)
 # Using "Dirty Data" approach - no perfect lines

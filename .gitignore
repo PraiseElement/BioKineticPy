@@ -5,3 +5,4 @@ venv/
 .vscode/
 biokinetic_project.json
 *.txt
+!requirements.txt

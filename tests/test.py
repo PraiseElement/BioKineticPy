@@ -40,7 +40,7 @@ class TestKineticSolver(unittest.TestCase):
         self.assertAlmostEqual(result['parameters']['vmax'], true_vmax, places=4)
         self.assertAlmostEqual(result['parameters']['km'], true_km, places=4)
         self.assertGreater(result['r_squared'], 0.999)
-        print(f"\n✅ Michaelis-Menten Test Passed: Vmax={result['parameters']['vmax']:.2f}, Km={result['parameters']['km']:.2f}")
+        print(f"\n[PASS] Michaelis-Menten Test Passed: Vmax={result['parameters']['vmax']:.2f}, Km={result['parameters']['km']:.2f}")
 
     def test_competitive_inhibition(self):
         """
@@ -67,7 +67,7 @@ class TestKineticSolver(unittest.TestCase):
         result = solver.fit_model("Competitive")
         
         self.assertAlmostEqual(result['parameters']['ki'], true_ki, places=3)
-        print(f"✅ Competitive Inhibition Test Passed: Ki={result['parameters']['ki']:.2f} (Expected 5.0)")
+        print(f"[PASS] Competitive Inhibition Test Passed: Ki={result['parameters']['ki']:.2f} (Expected 5.0)")
 
     def test_haldane_substrate_inhibition(self):
         """
@@ -93,7 +93,7 @@ class TestKineticSolver(unittest.TestCase):
         result = solver.fit_model("Substrate Inhibition")
         
         self.assertAlmostEqual(result['parameters']['ksi'], true_ksi, places=2)
-        print(f"✅ Substrate Inhibition Test Passed: Ksi={result['parameters']['ksi']:.2f} (Expected 50.0)")
+        print(f"[PASS] Substrate Inhibition Test Passed: Ksi={result['parameters']['ksi']:.2f} (Expected 50.0)")
 
 if __name__ == '__main__':
     unittest.main()

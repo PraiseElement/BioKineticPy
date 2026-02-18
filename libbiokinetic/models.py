@@ -8,6 +8,7 @@ class KineticPoint(BaseModel):
     inhibitor_conc: float = 0.0
 
     @field_validator('substrate_conc', 'velocity')
+    @classmethod
     def must_be_non_negative(cls, v):
         if v < 0:
             raise ValueError("Concentration and velocity must be non-negative.")
