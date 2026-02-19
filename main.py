@@ -14,6 +14,125 @@ from libbiokinetic.units import convert_velocity_to_standard, convert_param_to_u
 from libbiokinetic.report import generate_methods_report, generate_simulation_report, generate_thermo_report
 from libbiokinetic.thermo import solve_arrhenius, solve_eyring
 
+# ───────────────────────────────────────────────────────
+#  AUTHENTIC EXAMPLE DATA GENERATORS
+# ───────────────────────────────────────────────────────
+def _noisy(values, cv=0.08):
+    """Add realistic Gaussian noise (default 8 % coefficient of variation)."""
+    arr = np.array(values, dtype=float)
+    noise = np.random.normal(1.0, cv, size=arr.shape)
+    return np.round(np.clip(arr * noise, 0.01, None), 2)
+
+def _mm_v(s, vmax, km):
+    return vmax * s / (km + s)
+
+def _comp_v(s, i, vmax, km, ki):
+    return vmax * s / (km * (1 + i / ki) + s)
+
+def _ncomp_v(s, i, vmax, km, ki):
+    return (vmax / (1 + i / ki)) * s / (km + s)
+
+def _hill_v(s, vmax, khalf, n):
+    return vmax * s**n / (khalf**n + s**n)
+
+def _ksi_v(s, vmax, km, ksi):
+    return vmax * s / (km + s + s**2 / ksi)
+
+def make_example_matrix(mode="competitive", c_unit="μM"):
+    """
+    Generate an authentic, randomly-varied matrix-format kinetic dataset.
+    mode: 'competitive' | 'noncompetitive' | 'michaelis'
+    Returns a DataFrame and the inhibitor concentrations [I_A, I_B].
+    """
+    rng = np.random  # fresh seed each call
+    # ── Pick biologically realistic parameters ──────────
+    if mode == "competitive":
+        vmax  = rng.uniform(80, 160)     # μM/min  – typical enzyme
+        km    = rng.uniform(5, 20)        # μM
+        ki    = rng.uniform(3, 15)        # μM
+        i_a   = round(rng.uniform(0.5*ki, 1.2*ki), 1)
+        i_b   = round(rng.uniform(1.5*ki, 3.0*ki), 1)
+        s_arr = np.array([round(x, 1) for x in np.geomspace(km*0.1, km*8, 7)])
+        v0  = _noisy(_comp_v(s_arr, 0,   vmax, km, ki))
+        vA  = _noisy(_comp_v(s_arr, i_a, vmax, km, ki))
+        vB  = _noisy(_comp_v(s_arr, i_b, vmax, km, ki))
+        label = "Competitive"
+    elif mode == "noncompetitive":
+        vmax  = rng.uniform(80, 140)
+        km    = rng.uniform(8, 25)
+        ki    = rng.uniform(5, 20)
+        i_a   = round(rng.uniform(0.5*ki, 1.2*ki), 1)
+        i_b   = round(rng.uniform(1.5*ki, 2.5*ki), 1)
+        s_arr = np.array([round(x, 1) for x in np.geomspace(km*0.1, km*8, 7)])
+        v0  = _noisy(_ncomp_v(s_arr, 0,   vmax, km, ki))
+        vA  = _noisy(_ncomp_v(s_arr, i_a, vmax, km, ki))
+        vB  = _noisy(_ncomp_v(s_arr, i_b, vmax, km, ki))
+        label = "Non-Competitive"
+    else:  # michaelis
+        vmax = rng.uniform(60, 150)
+        km   = rng.uniform(5, 30)
+        i_a, i_b = 0.0, 0.0
+        s_arr = np.array([round(x, 1) for x in np.geomspace(km*0.1, km*10, 8)])
+        v0  = _noisy(_mm_v(s_arr, vmax, km))
+        vA  = np.array([None]*len(s_arr))
+        vB  = np.array([None]*len(s_arr))
+        label = "Michaelis-Menten"
+
+    df = pd.DataFrame({
+        "Include?": [True]*len(s_arr),
+        f"Substrate [{c_unit}]": s_arr,
+        "v (I=0)": v0,
+        "v (I=A)": vA,
+        "v (I=B)": vB,
+        "v (I=C)": [None]*len(s_arr),
+    })
+    return df, i_a, i_b, label
+
+def make_example_standard(mode="hill", c_unit="μM"):
+    """
+    Generate an authentic, randomly-varied standard-format kinetic dataset.
+    mode: 'hill' | 'substrate_inhibition'
+    """
+    rng = np.random
+    if mode == "hill":
+        vmax  = rng.uniform(80, 160)
+        khalf = rng.uniform(10, 30)
+        n     = round(rng.uniform(1.5, 3.0), 2)
+        s_arr = np.array([round(x, 1) for x in np.geomspace(khalf*0.05, khalf*10, 9)])
+        v_arr = _noisy(_hill_v(s_arr, vmax, khalf, n))
+        label = f"Hill (n ≈ {n:.1f})"
+    else:
+        vmax = rng.uniform(100, 200)
+        km   = rng.uniform(3, 12)
+        ksi  = rng.uniform(40, 120)
+        s_arr = np.array([round(x, 1) for x in np.geomspace(km*0.2, ksi*3, 10)])
+        v_arr = _noisy(_ksi_v(s_arr, vmax, km, ksi))
+        label = f"Substrate Inhibition (Ksi ≈ {ksi:.0f} μM)"
+
+    df = pd.DataFrame({
+        "Include?": [True]*len(s_arr),
+        f"S [{c_unit}]": s_arr,
+        "v": v_arr,
+        "I": [0]*len(s_arr),
+    })
+    return df, label
+
+def make_example_thermo():
+    """
+    Generate authentic thermodynamic data using the Arrhenius equation + noise.
+    Ea and A values span the typical range for mesophilic enzymes.
+    """
+    rng  = np.random
+    R    = 8.314
+    Ea   = rng.uniform(40_000, 80_000)   # J/mol  (40–80 kJ/mol typical)
+    A    = rng.uniform(1e10, 1e13)        # s⁻¹ pre-exponential
+    temps_c = np.array([20, 25, 30, 35, 40, 45, 50], dtype=float)
+    temps_k = temps_c + 273.15
+    k_true   = A * np.exp(-Ea / (R * temps_k))
+    k_noisy  = _noisy(k_true, cv=0.05)
+    return pd.DataFrame({"Temp (T)": temps_c, "Rate (k)": k_noisy}), Ea/1000
+
+
 # ═══════════════════════════════════════════════════════
 #  PAGE CONFIG & PREMIUM THEME
 # ═══════════════════════════════════════════════════════
@@ -499,27 +618,48 @@ if mode == "Analysis (Fit Data)":
 
         # DEMO LOADERS
         with st.expander("📂 Load Example Data"):
-            c_ex1, c_ex2 = st.columns(2)
-            if c_ex1.button("Competitive", use_container_width=True):
-                st.session_state.df_matrix = pd.DataFrame({
-                    "Include?": [True]*5,
-                    f"Substrate [{c_unit}]": [1, 5, 10, 20, 50],
-                    "v (I=0)": [10.5, 35.1, 55.0, 70.2, 90.5],
-                    "v (I=5)": [4.8, 19.5, 32.9, 45.0, 60.1],
-                    "v (I=10)": [2.5, 12.1, 21.0, 30.5, 42.0], 
-                    "v (I=C)": [None]*5
-                })
-                reset_editor_key()
-                st.rerun()
-            if c_ex2.button("Substrate Inhib", use_container_width=True):
-                st.session_state.df_standard = pd.DataFrame({
-                    "Include?": [True]*6,
-                    f"S [{c_unit}]": [1, 5, 10, 50, 100, 200],
-                    "v": [10, 45, 80, 60, 40, 25],
-                    "I": [0]*6
-                })
-                reset_editor_key()
-                st.rerun()
+            st.caption("Each click generates freshly randomised authentic data with realistic noise (~8% CV).")
+            ex_r1c1, ex_r1c2, ex_r1c3 = st.columns(3)
+            ex_r2c1, ex_r2c2, _ = st.columns(3)
+
+            if ex_r1c1.button("Michaelis-Menten", use_container_width=True):
+                df, i_a, i_b, lbl = make_example_matrix("michaelis", c_unit)
+                st.session_state.df_matrix = df
+                st.session_state.i_conc_A = float(i_a)
+                st.session_state.i_conc_B = float(i_b)
+                st.session_state.example_label = lbl
+                reset_editor_key(); st.rerun()
+
+            if ex_r1c2.button("Competitive", use_container_width=True):
+                df, i_a, i_b, lbl = make_example_matrix("competitive", c_unit)
+                st.session_state.df_matrix = df
+                st.session_state.i_conc_A = float(i_a)
+                st.session_state.i_conc_B = float(i_b)
+                st.session_state.example_label = lbl
+                reset_editor_key(); st.rerun()
+
+            if ex_r1c3.button("Non-Competitive", use_container_width=True):
+                df, i_a, i_b, lbl = make_example_matrix("noncompetitive", c_unit)
+                st.session_state.df_matrix = df
+                st.session_state.i_conc_A = float(i_a)
+                st.session_state.i_conc_B = float(i_b)
+                st.session_state.example_label = lbl
+                reset_editor_key(); st.rerun()
+
+            if ex_r2c1.button("Hill (Allosteric)", use_container_width=True):
+                df, lbl = make_example_standard("hill", c_unit)
+                st.session_state.df_standard = df
+                st.session_state.example_label = lbl
+                reset_editor_key(); st.rerun()
+
+            if ex_r2c2.button("Substrate Inhibition", use_container_width=True):
+                df, lbl = make_example_standard("substrate_inhibition", c_unit)
+                st.session_state.df_standard = df
+                st.session_state.example_label = lbl
+                reset_editor_key(); st.rerun()
+
+            if "example_label" in st.session_state:
+                st.success(f"✅ Loaded: **{st.session_state.example_label}** — re-click to regenerate with new parameters")
 
         if input_format == "Matrix":
             if "df_matrix" not in st.session_state:
@@ -898,13 +1038,14 @@ elif mode == "Thermodynamics":
     with col1:
         st.markdown('<span class="section-badge">📥 Data Entry</span>', unsafe_allow_html=True)
         with st.expander("📂 Load Example"):
-            if st.button("Load Thermo Data", use_container_width=True):
-                st.session_state.df_thermo = pd.DataFrame({
-                    "Temp (T)": [25, 30, 37, 42, 50],
-                    "Rate (k)": [12.5, 18.2, 35.1, 52.5, 90.0]
-                })
-                reset_editor_key()
-                st.rerun()
+            st.caption("Generates Arrhenius-based data with realistic noise. Each click uses new random parameters.")
+            if st.button("Load Thermo Example", use_container_width=True):
+                df_th, ea_kj = make_example_thermo()
+                st.session_state.df_thermo = df_th
+                st.session_state.thermo_ea_hint = ea_kj
+                reset_editor_key(); st.rerun()
+            if "thermo_ea_hint" in st.session_state:
+                st.info(f"💡 True Ea ≈ **{st.session_state.thermo_ea_hint:.1f} kJ/mol** — see how close the fit gets!")
 
         if "df_thermo" not in st.session_state:
             st.session_state.df_thermo = pd.DataFrame({
