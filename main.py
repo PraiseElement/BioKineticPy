@@ -726,68 +726,75 @@ if mode == "Analysis (Fit Data)":
                     st.plotly_chart(apply_plotly_theme(fig_diag, 400), use_container_width=True)
 
                 with tab3:
-                    cols = st.columns(2)
-                    # Lineweaver-Burk
-                    fig_lb = go.Figure()
-                    for i_val in unique_i:
-                        idx = [j for j, val in enumerate(user_i) if val == i_val]
-                        valid = [j for j in idx if user_s[j] > 0 and user_v[j] > 0]
-                        fig_lb.add_trace(go.Scatter(x=1/user_s[valid], y=1/user_v[valid], mode='markers', name=f"[I]={i_val:.1f}"))
-                        p_calc = best_model['parameters'].copy(); p_calc['i'] = i_val * c_factor
-                        v_m = generate_synthetic_curve(best_model['model'], s_molar, p_calc)
-                        v_u = np.array([convert_param_to_user(v, 'velocity', c_unit, t_unit) for v in v_m])
-                        mask = (s_smooth > 1e-9) & (v_u > 1e-9)
-                        fig_lb.add_trace(go.Scatter(x=1.0/s_smooth[mask], y=1.0/v_u[mask], mode='lines', name=f"Fit [I]={i_val:.1f}"))
-                    fig_lb.update_layout(title="Lineweaver-Burk", xaxis_title="1/[S]", yaxis_title="1/v")
-                    cols[0].plotly_chart(apply_plotly_theme(fig_lb, 400), use_container_width=True)
-                    
-                    # Hanes-Woolf
-                    fig_hw = go.Figure()
-                    for i_val in unique_i:
-                        idx = [j for j, val in enumerate(user_i) if val == i_val]
-                        valid = [j for j in idx if user_v[j] > 0]
-                        fig_hw.add_trace(go.Scatter(x=user_s[valid], y=user_s[valid]/user_v[valid], mode='markers', name=f"[I]={i_val:.1f}"))
-                        p_calc = best_model['parameters'].copy(); p_calc['i'] = i_val * c_factor
-                        v_m = generate_synthetic_curve(best_model['model'], s_molar, p_calc)
-                        v_u = np.array([convert_param_to_user(v, 'velocity', c_unit, t_unit) for v in v_m])
-                        mask = (v_u > 1e-9)
-                        fig_hw.add_trace(go.Scatter(x=s_smooth[mask], y=s_smooth[mask]/v_u[mask], mode='lines', name=f"Fit [I]={i_val:.1f}"))
-                    fig_hw.update_layout(title="Hanes-Woolf", xaxis_title="[S]", yaxis_title="[S]/v")
-                    cols[1].plotly_chart(apply_plotly_theme(fig_hw, 400), use_container_width=True)
-                    
-                    # Eadie-Hofstee
-                    fig_eh = go.Figure()
-                    for i_val in unique_i:
-                        idx = [j for j, val in enumerate(user_i) if val == i_val]
-                        valid = [j for j in idx if user_s[j] > 0]
-                        fig_eh.add_trace(go.Scatter(x=user_v[valid]/user_s[valid], y=user_v[valid], mode='markers', name=f"[I]={i_val:.1f}"))
-                        p_calc = best_model['parameters'].copy(); p_calc['i'] = i_val * c_factor
-                        v_m = generate_synthetic_curve(best_model['model'], s_molar, p_calc)
-                        v_u = np.array([convert_param_to_user(v, 'velocity', c_unit, t_unit) for v in v_m])
-                        mask = (s_smooth > 1e-9)
-                        fig_eh.add_trace(go.Scatter(x=v_u[mask]/s_smooth[mask], y=v_u[mask], mode='lines', name=f"Fit [I]={i_val:.1f}"))
-                    fig_eh.update_layout(title="Eadie-Hofstee", xaxis_title="v/[S]", yaxis_title="v")
-                    st.plotly_chart(apply_plotly_theme(fig_eh, 400), use_container_width=True)
+                    lt1, lt2, lt3 = st.tabs(["📐 Lineweaver-Burk", "📐 Hanes-Woolf", "📐 Eadie-Hofstee"])
+
+                    with lt1:
+                        fig_lb = go.Figure()
+                        for i_val in unique_i:
+                            idx = [j for j, val in enumerate(user_i) if val == i_val]
+                            valid = [j for j in idx if user_s[j] > 0 and user_v[j] > 0]
+                            fig_lb.add_trace(go.Scatter(x=1/user_s[valid], y=1/user_v[valid], mode='markers', name=f"[I]={i_val:.1f}"))
+                            p_calc = best_model['parameters'].copy(); p_calc['i'] = i_val * c_factor
+                            v_m = generate_synthetic_curve(best_model['model'], s_molar, p_calc)
+                            v_u = np.array([convert_param_to_user(v, 'velocity', c_unit, t_unit) for v in v_m])
+                            mask = (s_smooth > 1e-9) & (v_u > 1e-9)
+                            fig_lb.add_trace(go.Scatter(x=1.0/s_smooth[mask], y=1.0/v_u[mask], mode='lines', name=f"Fit [I]={i_val:.1f}"))
+                        fig_lb.update_layout(title="Lineweaver-Burk", xaxis_title=f"1/[S]  (1/{c_unit})", yaxis_title=f"1/v  (1/({v_unit_display}))")
+                        st.plotly_chart(apply_plotly_theme(fig_lb, 480), use_container_width=True)
+                        st.caption("Double-reciprocal plot. Lines that converge on the y-axis → competitive inhibition. Parallel lines → uncompetitive.")
+
+                    with lt2:
+                        fig_hw = go.Figure()
+                        for i_val in unique_i:
+                            idx = [j for j, val in enumerate(user_i) if val == i_val]
+                            valid = [j for j in idx if user_v[j] > 0]
+                            fig_hw.add_trace(go.Scatter(x=user_s[valid], y=user_s[valid]/user_v[valid], mode='markers', name=f"[I]={i_val:.1f}"))
+                            p_calc = best_model['parameters'].copy(); p_calc['i'] = i_val * c_factor
+                            v_m = generate_synthetic_curve(best_model['model'], s_molar, p_calc)
+                            v_u = np.array([convert_param_to_user(v, 'velocity', c_unit, t_unit) for v in v_m])
+                            mask = (v_u > 1e-9)
+                            fig_hw.add_trace(go.Scatter(x=s_smooth[mask], y=s_smooth[mask]/v_u[mask], mode='lines', name=f"Fit [I]={i_val:.1f}"))
+                        fig_hw.update_layout(title="Hanes-Woolf", xaxis_title=f"[S]  ({c_unit})", yaxis_title=f"[S]/v  ({c_unit}/({v_unit_display}))")
+                        st.plotly_chart(apply_plotly_theme(fig_hw, 480), use_container_width=True)
+                        st.caption("More robust to error at low [S] than Lineweaver-Burk. Slope = 1/Vmax; x-intercept = −Km.")
+
+                    with lt3:
+                        fig_eh = go.Figure()
+                        for i_val in unique_i:
+                            idx = [j for j, val in enumerate(user_i) if val == i_val]
+                            valid = [j for j in idx if user_s[j] > 0]
+                            fig_eh.add_trace(go.Scatter(x=user_v[valid]/user_s[valid], y=user_v[valid], mode='markers', name=f"[I]={i_val:.1f}"))
+                            p_calc = best_model['parameters'].copy(); p_calc['i'] = i_val * c_factor
+                            v_m = generate_synthetic_curve(best_model['model'], s_molar, p_calc)
+                            v_u = np.array([convert_param_to_user(v, 'velocity', c_unit, t_unit) for v in v_m])
+                            mask = (s_smooth > 1e-9)
+                            fig_eh.add_trace(go.Scatter(x=v_u[mask]/s_smooth[mask], y=v_u[mask], mode='lines', name=f"Fit [I]={i_val:.1f}"))
+                        fig_eh.update_layout(title="Eadie-Hofstee", xaxis_title=f"v/[S]  ({v_unit_display}/{c_unit})", yaxis_title=f"v  ({v_unit_display})")
+                        st.plotly_chart(apply_plotly_theme(fig_eh, 480), use_container_width=True)
+                        st.caption("Best for visually distinguishing inhibition types. Slope = −Km; y-intercept = Vmax; concave curves indicate cooperativity.")
 
                 with tab4:
-                    cols = st.columns(2)
-                    # Dixon
-                    fig_dixon = go.Figure()
-                    for s_val in sorted(list(set([round(s, 6) for s in user_s]))):
-                        idx = [j for j, s in enumerate(user_s) if abs(s - s_val) < 1e-9 and user_v[j] > 0]
-                        if len(idx) > 1:
-                            fig_dixon.add_trace(go.Scatter(x=user_i[idx], y=1/user_v[idx], mode='markers+lines', name=f"[S]={s_val:.1f}"))
-                    fig_dixon.update_layout(title="Dixon Plot", xaxis_title="[I]", yaxis_title="1/v")
-                    cols[0].plotly_chart(apply_plotly_theme(fig_dixon, 400), use_container_width=True)
-                    
-                    # Cornish-Bowden
-                    fig_cb = go.Figure()
-                    for s_val in sorted(list(set([round(s, 6) for s in user_s]))):
-                        idx = [j for j, s in enumerate(user_s) if abs(s - s_val) < 1e-9 and user_v[j] > 0]
-                        if len(idx) > 1:
-                            fig_cb.add_trace(go.Scatter(x=user_i[idx], y=s_val/user_v[idx], mode='markers+lines', name=f"[S]={s_val:.1f}"))
-                    fig_cb.update_layout(title="Cornish-Bowden", xaxis_title="[I]", yaxis_title="[S]/v")
-                    cols[1].plotly_chart(apply_plotly_theme(fig_cb, 400), use_container_width=True)
+                    it1, it2 = st.tabs(["🧪 Dixon Plot", "🧪 Cornish-Bowden"])
+
+                    with it1:
+                        fig_dixon = go.Figure()
+                        for s_val in sorted(list(set([round(s, 6) for s in user_s]))):
+                            idx = [j for j, s in enumerate(user_s) if abs(s - s_val) < 1e-9 and user_v[j] > 0]
+                            if len(idx) > 1:
+                                fig_dixon.add_trace(go.Scatter(x=user_i[idx], y=1/user_v[idx], mode='markers+lines', name=f"[S]={s_val:.1f}"))
+                        fig_dixon.update_layout(title="Dixon Plot", xaxis_title=f"[I]  ({c_unit})", yaxis_title=f"1/v  (1/({v_unit_display}))")
+                        st.plotly_chart(apply_plotly_theme(fig_dixon, 480), use_container_width=True)
+                        st.caption("1/v vs [I] at each fixed [S]. Lines converging above the x-axis → competitive inhibition. Converging below → uncompetitive. The x-intercept of the intersection gives −Ki.")
+
+                    with it2:
+                        fig_cb = go.Figure()
+                        for s_val in sorted(list(set([round(s, 6) for s in user_s]))):
+                            idx = [j for j, s in enumerate(user_s) if abs(s - s_val) < 1e-9 and user_v[j] > 0]
+                            if len(idx) > 1:
+                                fig_cb.add_trace(go.Scatter(x=user_i[idx], y=s_val/user_v[idx], mode='markers+lines', name=f"[S]={s_val:.1f}"))
+                        fig_cb.update_layout(title="Cornish-Bowden", xaxis_title=f"[I]  ({c_unit})", yaxis_title=f"[S]/v  ({c_unit}/({v_unit_display}))")
+                        st.plotly_chart(apply_plotly_theme(fig_cb, 480), use_container_width=True)
+                        st.caption("[S]/v vs [I] at each fixed [S]. More robust than Dixon — unaffected by competitive inhibition artefacts. Parallel lines → competitive. Converging lines → non-competitive/mixed.")
 
                 with tab5:
                     st.markdown("**Interactive Velocity Surface**")
