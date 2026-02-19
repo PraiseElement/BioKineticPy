@@ -888,17 +888,58 @@ if mode == "Analysis (Fit Data)":
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                    
-                    fig_diag = make_subplots(rows=1, cols=2, subplot_titles=("Residuals vs [S]", "Q-Q Plot"))
-                    fig_diag.add_trace(go.Scatter(x=s_vals, y=residuals, mode='markers', marker=dict(color='#f85149', size=8, line=dict(width=1, color='rgba(255,255,255,0.2)'))), row=1, col=1)
-                    fig_diag.add_hline(y=0, line_dash="dash", line_color="#58a6ff", row=1, col=1)
-                    res_sorted = np.sort(residuals); theo = stats.norm.ppf(np.linspace(0.01, 0.99, len(res_sorted)))
-                    fig_diag.add_trace(go.Scatter(x=theo, y=res_sorted, mode='markers', marker=dict(color='#bc8cff', size=8)), row=1, col=2)
-                    # add reference line for QQ
-                    qq_min, qq_max = min(theo), max(theo)
-                    fig_diag.add_trace(go.Scatter(x=[qq_min, qq_max], y=[qq_min * np.std(residuals) + np.mean(residuals), qq_max * np.std(residuals) + np.mean(residuals)], mode='lines', line=dict(dash='dash', color='#58a6ff'), showlegend=False), row=1, col=2)
-                    st.plotly_chart(apply_plotly_theme(fig_diag, 400), use_container_width=True)
 
+                    dt1, dt2 = st.tabs(["📊 Residuals vs [S]", "📈 Q-Q Plot"])
+
+                    with dt1:
+                        fig_res = go.Figure()
+                        fig_res.add_trace(go.Scatter(
+                            x=s_vals, y=residuals, mode='markers',
+                            name="Residual",
+                            marker=dict(color='#f85149', size=9, line=dict(width=1, color='rgba(255,255,255,0.2)'))
+                        ))
+                        fig_res.add_hline(y=0, line_dash="dash", line_color="#58a6ff", annotation_text="Zero line", annotation_position="bottom right")
+                        fig_res.update_layout(
+                            title="Residuals vs [S]",
+                            xaxis_title=f"[S]  ({c_unit})",
+                            yaxis_title=f"Residual  ({v_unit_display})",
+                            showlegend=False
+                        )
+                        st.plotly_chart(apply_plotly_theme(fig_res, 420), use_container_width=True)
+                        st.caption(
+                            "Ideal: points scatter randomly above and below zero with no pattern. "
+                            "A U-shape or trend suggests the model shape is wrong. "
+                            "Runs Test Z-score quantifies this — |Z| > 1.96 indicates systematic deviation."
+                        )
+
+                    with dt2:
+                        res_sorted = np.sort(residuals)
+                        theo = stats.norm.ppf(np.linspace(0.01, 0.99, len(res_sorted)))
+                        qq_slope = np.std(residuals)
+                        qq_intercept = np.mean(residuals)
+                        fig_qq = go.Figure()
+                        fig_qq.add_trace(go.Scatter(
+                            x=theo, y=res_sorted, mode='markers',
+                            name="Quantile",
+                            marker=dict(color='#bc8cff', size=9, line=dict(width=1, color='rgba(255,255,255,0.2)'))
+                        ))
+                        fig_qq.add_trace(go.Scatter(
+                            x=[min(theo), max(theo)],
+                            y=[min(theo)*qq_slope + qq_intercept, max(theo)*qq_slope + qq_intercept],
+                            mode='lines', name="Normal reference",
+                            line=dict(dash='dash', color='#58a6ff', width=2)
+                        ))
+                        fig_qq.update_layout(
+                            title="Q-Q Plot  (Quantile-Quantile)",
+                            xaxis_title="Theoretical Normal Quantile",
+                            yaxis_title=f"Sample Residual  ({v_unit_display})"
+                        )
+                        st.plotly_chart(apply_plotly_theme(fig_qq, 420), use_container_width=True)
+                        st.caption(
+                            "Points that fall on the dashed reference line indicate normally distributed residuals — "
+                            "exactly what a valid kinetic model should produce. "
+                            "Curved tails suggest outliers or systematic bias."
+                        )
                 with tab3:
                     lt1, lt2, lt3 = st.tabs(["📐 Lineweaver-Burk", "📐 Hanes-Woolf", "📐 Eadie-Hofstee"])
 
