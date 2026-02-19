@@ -38,6 +38,10 @@ def _hill_v(s, vmax, khalf, n):
 def _ksi_v(s, vmax, km, ksi):
     return vmax * s / (km + s + s**2 / ksi)
 
+def _uncomp_v(s, i, vmax, km, ki):
+    factor = 1 + i / ki
+    return (vmax / factor) * s / (km / factor + s)
+
 def make_example_matrix(mode="competitive", c_unit="μM"):
     """
     Generate an authentic, randomly-varied matrix-format kinetic dataset.
@@ -68,6 +72,17 @@ def make_example_matrix(mode="competitive", c_unit="μM"):
         vA  = _noisy(_ncomp_v(s_arr, i_a, vmax, km, ki))
         vB  = _noisy(_ncomp_v(s_arr, i_b, vmax, km, ki))
         label = "Non-Competitive"
+    elif mode == "uncompetitive":
+        vmax  = rng.uniform(80, 150)
+        km    = rng.uniform(5, 20)
+        ki    = rng.uniform(3, 12)
+        i_a   = round(rng.uniform(0.5*ki, 1.2*ki), 1)
+        i_b   = round(rng.uniform(1.5*ki, 3.0*ki), 1)
+        s_arr = np.array([round(x, 1) for x in np.geomspace(km*0.1, km*8, 7)])
+        v0  = _noisy(_uncomp_v(s_arr, 0,   vmax, km, ki))
+        vA  = _noisy(_uncomp_v(s_arr, i_a, vmax, km, ki))
+        vB  = _noisy(_uncomp_v(s_arr, i_b, vmax, km, ki))
+        label = "Uncompetitive"
     else:  # michaelis
         vmax = rng.uniform(60, 150)
         km   = rng.uniform(5, 30)
@@ -625,7 +640,7 @@ if mode == "Analysis (Fit Data)":
         with st.expander("📂 Load Example Data"):
             st.caption("Each click generates freshly randomised authentic data with realistic noise (~8% CV).")
             ex_r1c1, ex_r1c2, ex_r1c3 = st.columns(3)
-            ex_r2c1, ex_r2c2, _ = st.columns(3)
+            ex_r2c1, ex_r2c2, ex_r2c3 = st.columns(3)
 
             if ex_r1c1.button("Michaelis-Menten", use_container_width=True):
                 df, i_a, i_b, lbl = make_example_matrix("michaelis", c_unit)
@@ -633,6 +648,7 @@ if mode == "Analysis (Fit Data)":
                 st.session_state.i_conc_A = float(i_a)
                 st.session_state.i_conc_B = float(i_b)
                 st.session_state.example_label = lbl
+                st.session_state["_pending_format"] = "Matrix"
                 reset_editor_key(); st.rerun()
 
             if ex_r1c2.button("Competitive", use_container_width=True):
@@ -641,6 +657,7 @@ if mode == "Analysis (Fit Data)":
                 st.session_state.i_conc_A = float(i_a)
                 st.session_state.i_conc_B = float(i_b)
                 st.session_state.example_label = lbl
+                st.session_state["_pending_format"] = "Matrix"
                 reset_editor_key(); st.rerun()
 
             if ex_r1c3.button("Non-Competitive", use_container_width=True):
@@ -649,16 +666,26 @@ if mode == "Analysis (Fit Data)":
                 st.session_state.i_conc_A = float(i_a)
                 st.session_state.i_conc_B = float(i_b)
                 st.session_state.example_label = lbl
+                st.session_state["_pending_format"] = "Matrix"
                 reset_editor_key(); st.rerun()
 
-            if ex_r2c1.button("Hill (Allosteric)", use_container_width=True):
+            if ex_r2c1.button("Uncompetitive", use_container_width=True):
+                df, i_a, i_b, lbl = make_example_matrix("uncompetitive", c_unit)
+                st.session_state.df_matrix = df
+                st.session_state.i_conc_A = float(i_a)
+                st.session_state.i_conc_B = float(i_b)
+                st.session_state.example_label = lbl
+                st.session_state["_pending_format"] = "Matrix"
+                reset_editor_key(); st.rerun()
+
+            if ex_r2c2.button("Hill (Allosteric)", use_container_width=True):
                 df, lbl = make_example_standard("hill", c_unit)
                 st.session_state.df_standard = df
                 st.session_state.example_label = lbl
                 st.session_state["_pending_format"] = "Standard"
                 reset_editor_key(); st.rerun()
 
-            if ex_r2c2.button("Substrate Inhibition", use_container_width=True):
+            if ex_r2c3.button("Substrate Inhibition", use_container_width=True):
                 df, lbl = make_example_standard("substrate_inhibition", c_unit)
                 st.session_state.df_standard = df
                 st.session_state.example_label = lbl
@@ -1281,10 +1308,10 @@ publication-ready Methods text with all parameters and statistical tests.
          "Vmax **decreases** · Km **unchanged**. LB lines converge on the **x-axis**.",
          "Heavy metal inhibition; iodoacetamide on cysteine-protease active sites."),
         ("Uncompetitive", "#fbbf24",
-         "v = Vmax·[S] / (Km + [S]·(1+[I]/Ki))",
-         "Inhibitor binds **only** to the ES complex — it cannot bind free enzyme. Paradoxically, both Vmax and Km decrease by the same factor.",
-         "Both Vmax and Km **decrease** equally. LB lines are **parallel** (same slope).",
-         "Phenylalanine inhibition of alkaline phosphatase; Li⁺ on inositol monophosphatase."),
+         "v = (Vmax/(1+[I]/Ki))·[S] / (Km/(1+[I]/Ki) + [S])",
+         "Inhibitor binds **only** to the ES complex — it cannot bind free enzyme. Paradoxically, both Vmax and Km decrease by the **same factor** (1 + [I]/Ki), so the ratio Vmax/Km remains constant. Common in multi-substrate reactions.",
+         "Both Vmax **and** Km **decrease** by the same factor. Lineweaver-Burk lines are **parallel** (same slope). Dixon plot — lines converge below the x-axis.",
+         "Phenylalanine on alkaline phosphatase; Li⁺ on inositol monophosphatase; some drug-target interactions in multi-substrate systems."),
         ("Mixed", "#fb7185",
          "v = Vmax'·[S] / (Km' + [S])  [α controls E vs ES preference]",
          "General case: inhibitor binds both free enzyme and ES complex with **different** affinities (α). α > 1 → prefers free enzyme (competitive-like). α < 1 → prefers ES (uncompetitive-like). α = 1 → pure non-competitive.",
