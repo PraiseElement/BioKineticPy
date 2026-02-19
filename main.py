@@ -613,7 +613,9 @@ if mode == "Analysis (Fit Data)":
     
     with col1:
         st.markdown('<span class="section-badge">📥 Data Input</span>', unsafe_allow_html=True)
-        input_format = st.radio("Layout", ["Matrix", "Standard"], horizontal=True)
+        if "input_format" not in st.session_state:
+            st.session_state["input_format"] = "Matrix"
+        input_format = st.radio("Layout", ["Matrix", "Standard"], horizontal=True, key="input_format")
         uploaded_file = st.file_uploader("Upload Data (CSV / Excel)", type=["csv", "xlsx"])
 
         # DEMO LOADERS
@@ -650,12 +652,14 @@ if mode == "Analysis (Fit Data)":
                 df, lbl = make_example_standard("hill", c_unit)
                 st.session_state.df_standard = df
                 st.session_state.example_label = lbl
+                st.session_state["input_format"] = "Standard"
                 reset_editor_key(); st.rerun()
 
             if ex_r2c2.button("Substrate Inhibition", use_container_width=True):
                 df, lbl = make_example_standard("substrate_inhibition", c_unit)
                 st.session_state.df_standard = df
                 st.session_state.example_label = lbl
+                st.session_state["input_format"] = "Standard"
                 reset_editor_key(); st.rerun()
 
             if "example_label" in st.session_state:
