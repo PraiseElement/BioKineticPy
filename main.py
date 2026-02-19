@@ -613,6 +613,9 @@ if mode == "Analysis (Fit Data)":
     
     with col1:
         st.markdown('<span class="section-badge">📥 Data Input</span>', unsafe_allow_html=True)
+        # Transfer any pending format switch (requested by example buttons)
+        if "_pending_format" in st.session_state:
+            st.session_state["input_format"] = st.session_state.pop("_pending_format")
         if "input_format" not in st.session_state:
             st.session_state["input_format"] = "Matrix"
         input_format = st.radio("Layout", ["Matrix", "Standard"], horizontal=True, key="input_format")
@@ -652,14 +655,14 @@ if mode == "Analysis (Fit Data)":
                 df, lbl = make_example_standard("hill", c_unit)
                 st.session_state.df_standard = df
                 st.session_state.example_label = lbl
-                st.session_state["input_format"] = "Standard"
+                st.session_state["_pending_format"] = "Standard"
                 reset_editor_key(); st.rerun()
 
             if ex_r2c2.button("Substrate Inhibition", use_container_width=True):
                 df, lbl = make_example_standard("substrate_inhibition", c_unit)
                 st.session_state.df_standard = df
                 st.session_state.example_label = lbl
-                st.session_state["input_format"] = "Standard"
+                st.session_state["_pending_format"] = "Standard"
                 reset_editor_key(); st.rerun()
 
             if "example_label" in st.session_state:
